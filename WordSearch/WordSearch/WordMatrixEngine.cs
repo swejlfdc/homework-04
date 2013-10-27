@@ -242,7 +242,7 @@ namespace WordSearch
             UnionMatrix();
             FillWords(ref matrixM);
             if (used.Contains(false)) return false;
-            //FillLetters(ref matrixM);
+            FillLetters(ref matrixM);
             return true;
         }
         public bool Run(string[] inArray, int bstSize)
