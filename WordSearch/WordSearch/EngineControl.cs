@@ -41,23 +41,47 @@ namespace WordSearch
             for (string str; (str = file.ReadLine()) != null; )
             {
                 str = str.ToUpper();
+                str = str.Replace(" ", "");
                 words.Add(str);
                 if (str.Count() > maxLen) maxLen = str.Count();
             }
+            bool[] fg = new bool[words.Count];
+            for(int i = 0; i < words.Count; ++i)
+                for(int j = 0; j < words.Count; ++j) 
+                    if(i != j && words[i].Contains(words[j])) {
+                        fg[j] = true;
+                    }
+            for(int i = words.Count - 1; i >= 0; --i) 
+                if(fg[i]) words.RemoveAt(i);
             WordMatrixEngine engine = new WordMatrixEngine();
             words.Sort(new comp());
-            engine.Run(words.ToArray(), maxLen * 2);
-            if (resultMatrix == null || resultMatrix.GetLength(0) > engine.matrixM.GetLength(0))
-                resultMatrix = (int[,])engine.matrixM.Clone();
-            int maxLmt = 200000 / (words.Count * words.Count);
+            for (int i = 17; i != 30; ++i)
+            {
+                if (!engine.Run(words.ToArray(), i)) continue;
+                if (resultMatrix == null || resultMatrix.GetLength(0) > engine.matrixM.GetLength(0))
+                    resultMatrix = (int[,])engine.matrixM.Clone();
+            }
+            /*int maxLmt = 200000 / (words.Count * words.Count);
             for (int i = 0; i < maxLmt; ++i)
             {
                 Shuffle(words);
                 engine.Run(words.ToArray(), maxLen * 2);
                 if (resultMatrix == null || resultMatrix.GetLength(0) > engine.matrixM.GetLength(0))
                     resultMatrix = (int[,])engine.matrixM.Clone();
+            }*/
+            engine.excuteSize = resultMatrix.GetLength(0);
+            bool tmp = engine.CheckMatrix(ref resultMatrix);
+            Console.WriteLine("hang: {0}, bool: {1}", resultMatrix.GetLength(0), tmp.ToString());
+            StreamWriter sw = new StreamWriter("11061215_result.txt");
+            for (int i = 0; i < resultMatrix.GetLength(0); ++i)
+            {
+                for (int j = 0; j < resultMatrix.GetLength(1); ++j)
+                {
+                    sw.Write(((char)resultMatrix[i, j]).ToString());
+                }
+                sw.Write('\n');
             }
-            Console.WriteLine("hang: {0}", resultMatrix.GetLength(0));
+            sw.Close();
         }
     }
 }

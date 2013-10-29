@@ -9,12 +9,14 @@ namespace WordSearch
     class WordMatrixEngine
     {
         string[] excuteArray;
+        string[] tmpArray;
         bool[] used;
-        int miniSize, bestSize, excuteSize;
+        public int miniSize, bestSize, excuteSize;
         public int[,] matrixA, matrixB;
         public int[,] matrixM;
-        int[] dx = new int[4] { 0, 0, 1, -1 };
-        int[] dy = new int[4] { 1, -1, 0, 0 };
+        int[] dx = new int[4] { 1, -1, 0, 0 };
+        int[] dy = new int[4] { 0, 0, 1, -1 };
+        int[] directionLmt;
         public WordMatrixEngine()
         {
         }
@@ -28,6 +30,7 @@ namespace WordSearch
             miniSize++;
             this.bestSize = bstSize;//best size now
             miniSize = Math.Min(miniSize, bestSize);
+            directionLmt = new int[8] { 0, 1, 1, 1, 2, 2, 2, 2 };
         }//Well down
         private void SplitPosition(ref int x, ref int y, int i, int j)
         {
@@ -177,20 +180,27 @@ namespace WordSearch
                     tmpx -= tx;
                     tmpy -= ty;
                 }
-                if ((double)(tmpNum*6.18+1)/(tmpVal+1)>estVal)
+                if ((double)(tmpNum*6.18+1)/(tmpVal+1)+directionLmt[mode]*1000000>estVal)
                 {
-                    estVal = (double)(tmpNum*6.18 + 1) / (tmpVal + 1);
+                    estVal = (double)(tmpNum*6.18 + 1) / (tmpVal + 1) + directionLmt[mode]*1000000;
                     mode = i;
                 }
             }
             return (estVal!=0);
         }
-        private void FillWords(ref int[,] matrix)
+        private void FillWords(ref int[,] matrix,int ll)
         {
             int bestx=0, besty=0, bestmode=0, tmpmode;
             double bestVal, tmpVal;
-            for (int itStr1 = 0; itStr1 != used.Length; ++itStr1)
+            int[] tmplmt = new int[8];
+            for (int itStr1 = 0; itStr1 != excuteArray.Length; ++itStr1)
             {
+                if (used[itStr1]) continue;
+                if (ll >= 0 && itStr1 % 2 == ll) continue;
+                for (int i = 0; i != excuteSize; ++i)
+                    for (int j = 0; j != excuteSize; ++j)
+                        if (Recheck(ref matrix, excuteArray[itStr1], i, j, ref tmplmt) != 0)
+                            used[itStr1] = true;
                 if (used[itStr1]) continue;
                 tmpmode = 0;
                 bestVal = 0;
@@ -214,6 +224,13 @@ namespace WordSearch
                         matrix[bestx, besty] = (int)excuteArray[itStr1][k];
                         bestx += dx[bestmode];
                         besty += dy[bestmode];
+                        directionLmt[bestmode]--;
+                        if (ll==1) directionLmt[bestmode+4]--;
+                        if (ll == 0 && bestmode == 0) directionLmt[7]--;
+                        if (ll == 0 && bestmode == 1) directionLmt[6]--;
+                        if (ll == 0 && bestmode == 2) directionLmt[4]--;
+                        if (ll == 0 && bestmode == 3) directionLmt[5]--;
+                        for (int i = 0; i != 8; ++i) if (directionLmt[i] < 0) directionLmt[i] = 0;
                     }
                     used[itStr1] = true;
                 }
@@ -236,19 +253,27 @@ namespace WordSearch
         private bool Search()
         {
             if (!Prepare()) return false;
+            tmpArray =(string[])excuteArray.Clone();
+            excuteArray = new string[tmpArray.Length-3];
+            for (int i = 0; i != excuteArray.Length; ++i) excuteArray[i] = tmpArray[i];
             SplitMatrix();
-            FillWords(ref matrixA);
-            FillWords(ref matrixB);
+            FillWords(ref matrixA,1);
+            FillWords(ref matrixB,0);
             UnionMatrix();
-            FillWords(ref matrixM);
+            excuteArray = (string[])tmpArray.Clone();
+            FillWords(ref matrixM,-1);
             if (used.Contains(false)) return false;
+            if (directionLmt.Contains(1)) return false;
+            if (directionLmt.Contains(2)) return false;
             FillLetters(ref matrixM);
+            //return CheckMatrix(ref matrixM);
             return true;
         }
         public bool Run(string[] inArray, int bstSize)
         {
             Initialization(inArray, bstSize);
             excuteSize = bestSize;
+            if (miniSize > bestSize) return false;
             if (!Search()) return false;
             do
             {
@@ -264,6 +289,7 @@ namespace WordSearch
             } while (bestSize != miniSize);
             excuteSize = bestSize;
             Search();
+            //return CheckMatrix();
             return true;
         }
         private void _DebugMatrixTransform(int msize)
@@ -311,6 +337,47 @@ namespace WordSearch
             //_DebugMatrixTransform(miniSize);
             //_DebugPrepare();
             _DebugRun(6);
+        }
+        private int Recheck(ref int[,] matrix,string str, int x, int y,ref int[] lmt)
+        {
+            int[] dx = new int[8] { 0, 0, 1, -1, -1, 1, -1, 1 };
+            int[] dy = new int[8] { 1, -1, 0, 0, -1, -1, 1, 1 };
+            int rect = 0;
+            for (int i = 0; i != 8; ++i)
+            {
+                int tx = x;
+                int ty = y;
+                int k = 0;
+                for (k = 0; k != str.Length; ++k)
+                {
+                    if (!CheckRange(tx, ty)) break;
+                    if (str[k] != matrix[tx, ty]) break;
+                    tx += dx[i];
+                    ty += dy[i];
+                }
+                if (k == str.Length) rect++;
+                lmt[i]++;
+                //if (k == str.Length) Console.WriteLine("({0},{1})", tx, ty);
+            }
+            return rect;
+        }
+        public bool CheckMatrix(ref int[,] matrix)
+        {
+            int cnt;
+            int[] lmt = new int[8];
+            for (int i = 0; i != 8; ++i) lmt[i] = 0;
+            if (matrix == null) return false;
+            foreach (string str in excuteArray)
+            {
+                cnt = 0;
+                for (int i = 0; i != excuteSize; ++i)
+                    for (int j = 0; j != excuteSize; ++j)
+                        cnt += Recheck(ref matrix, str, i, j,ref lmt);
+                if (cnt != 1) 
+                    return false;
+            }
+            for (int i = 0; i != 8; ++i) if (lmt[i] < 2) return false;
+            return true;
         }
 
     }
